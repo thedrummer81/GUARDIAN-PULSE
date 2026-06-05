@@ -1,0 +1,5 @@
+{
+  "name": "Guardian Pulse",
+  "description": "A behavioral heuristics safety app that learns daily rhythms and alerts next of kin during abnormal inactivity.",
+  "requestFramePermissions": ["geolocation"]
+}

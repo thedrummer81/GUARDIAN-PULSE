@@ -1,0 +1,25 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Capacitor
+# /android <- Removed to allow syncing native project
+/ios
+/electron
+
+# Android native build trash
+android/app/build/
+android/build/
+android/local.properties
+android/.gradle/
+android/*.iml
+android/captures/
+android/.externalNativeBuild/
+android/.cxx/
+android/.idea/
+# android/app/src/main/assets/public/

@@ -693,7 +693,7 @@ export default function App() {
                   </div>
                 </div>
                 <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                  {[15, 30, 45, 60, 120].map(mins => (
+                  {[1, 15, 30, 45, 60, 120].map(mins => (
                     <button
                       key={mins}
                       onClick={() => updateInactivityThreshold(mins)}

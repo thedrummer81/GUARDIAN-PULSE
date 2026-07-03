@@ -117,7 +117,7 @@ export default function App() {
       setWakeLockSentinel(sentinel);
       console.log('Screen Wake Lock acquired successfully');
     } catch (err) {
-      console.error('Failed to acquire Screen Wake Lock:', err);
+      console.warn('Failed to acquire Screen Wake Lock (this is expected in some sandboxed preview/iframe environments):', err);
     }
   }, [wakeLockSentinel]);
 
@@ -127,7 +127,7 @@ export default function App() {
         await wakeLockSentinel.release();
         setWakeLockSentinel(null);
       } catch (err) {
-        console.error('Failed to release Screen Wake Lock:', err);
+        console.warn('Failed to release Screen Wake Lock:', err);
       }
     }
   }, [wakeLockSentinel]);

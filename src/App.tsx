@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Shield, AlertTriangle, CheckCircle2, Phone, Settings, Activity, Clock, Battery, Sun, Smartphone, User, ShieldAlert, Plus, X, Timer } from 'lucide-react';
+import { Shield, AlertTriangle, CheckCircle2, Phone, Settings, Activity, Clock, Battery, Sun, Smartphone, User, ShieldAlert, Plus, X, Timer, Vibrate, Volume2, VolumeX } from 'lucide-react';
 import { Motion } from '@capacitor/motion';
 import { Capacitor } from '@capacitor/core';
 import { Device } from '@capacitor/device';
@@ -13,6 +13,9 @@ import SensorDashboard from './components/SensorDashboard';
 import ActivityLog from './components/ActivityLog';
 import Onboarding from './components/Onboarding';
 import GitHubSync from './components/GitHubSync';
+
+// Utils
+import { alarmController } from './utils/alarmController';
 
 const INITIAL_PATTERNS: ActivityPattern[] = [
   { id: '1', name: 'Morning Routine', startTime: '07:00', endTime: '08:30', type: 'movement', status: 'learned' },
@@ -78,6 +81,40 @@ export default function App() {
     type: 'movement' as const
   });
   const [sensorPermission, setSensorPermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
+
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('guardian_pulse_sound_enabled') !== 'false';
+  });
+  const [vibrateEnabled, setVibrateEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('guardian_pulse_vibrate_enabled') !== 'false';
+  });
+
+  const toggleSound = () => {
+    const newVal = !soundEnabled;
+    setSoundEnabled(newVal);
+    localStorage.setItem('guardian_pulse_sound_enabled', String(newVal));
+  };
+
+  const toggleVibrate = () => {
+    const newVal = !vibrateEnabled;
+    setVibrateEnabled(newVal);
+    localStorage.setItem('guardian_pulse_vibrate_enabled', String(newVal));
+  };
+
+  // Alarm controller trigger effect
+  useEffect(() => {
+    if (appState !== 'monitoring') {
+      alarmController.stopAll();
+      alarmController.startSound();
+      alarmController.startVibration();
+    } else {
+      alarmController.stopAll();
+    }
+
+    return () => {
+      alarmController.stopAll();
+    };
+  }, [appState, soundEnabled, vibrateEnabled]);
 
   const handleOnboardingComplete = (contact: NOKContact) => {
     setNok(contact);
@@ -596,6 +633,54 @@ export default function App() {
                  inactivityThreshold={inactivityThreshold}
                  onInactivityRestore={updateInactivityThreshold}
                />
+
+               {/* Alarm Feedback Settings */}
+               <div className="flex flex-col gap-4 p-4 rounded-xl bg-zinc-800">
+                 <div className="flex items-center gap-3">
+                   <ShieldAlert className="w-5 h-5 text-zinc-400" />
+                   <div>
+                     <p className="text-sm font-medium">Alarm Alerts</p>
+                     <p className="text-xs text-zinc-500">Configure alarm warnings and feedback</p>
+                   </div>
+                 </div>
+
+                 <div className="grid grid-cols-2 gap-3 pt-2">
+                   {/* Sound Toggle */}
+                   <button
+                     onClick={toggleSound}
+                     className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${
+                       soundEnabled 
+                         ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+                         : 'bg-zinc-900 border-zinc-700 text-zinc-500'
+                     }`}
+                   >
+                     {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+                     <span className="text-[10px] font-bold uppercase tracking-wider">Sound {soundEnabled ? 'On' : 'Off'}</span>
+                   </button>
+
+                   {/* Vibrate Toggle */}
+                   <button
+                     onClick={toggleVibrate}
+                     className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${
+                       vibrateEnabled 
+                         ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+                         : 'bg-zinc-900 border-zinc-700 text-zinc-500'
+                     }`}
+                   >
+                     <Vibrate className="w-5 h-5" />
+                     <span className="text-[10px] font-bold uppercase tracking-wider">Vibrate {vibrateEnabled ? 'On' : 'Off'}</span>
+                   </button>
+                 </div>
+
+                 {/* Hardware Test Button */}
+                 <button
+                   onClick={() => alarmController.testSample()}
+                   className="w-full py-2.5 bg-zinc-900 hover:bg-zinc-950 text-zinc-300 font-bold rounded-xl text-xs uppercase tracking-wider border border-zinc-700 transition-all active:scale-95 flex items-center justify-center gap-2"
+                 >
+                   <ShieldAlert className="w-4 h-4 text-emerald-400" />
+                   Test Alarm Hardware
+                 </button>
+               </div>
 
                <div className="flex flex-col gap-4 p-4 rounded-xl bg-zinc-800">
                 <div className="flex items-center justify-between">

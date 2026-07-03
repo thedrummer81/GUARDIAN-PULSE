@@ -26,3 +26,192 @@
     scrollbar-width: none;
   }
 }
+
+/* Day Mode (Light Theme) Overrides */
+.theme-day {
+  background-color: #f4f4f5 !important;
+  color: #09090b !important;
+}
+
+.theme-day .bg-zinc-950 {
+  background-color: #f4f4f5 !important;
+}
+
+.theme-day .bg-zinc-900 {
+  background-color: #ffffff !important;
+}
+
+.theme-day .bg-zinc-900\/50 {
+  background-color: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+.theme-day .bg-zinc-900\/30 {
+  background-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.theme-day .bg-zinc-800 {
+  background-color: #f4f4f5 !important;
+}
+
+.theme-day .bg-zinc-800\/50 {
+  background-color: rgba(244, 244, 245, 0.5) !important;
+}
+
+.theme-day .bg-zinc-900.hover\:bg-zinc-950:hover {
+  background-color: #f4f4f5 !important;
+}
+
+.theme-day .border-zinc-800 {
+  border-color: #e4e4e7 !important;
+}
+
+.theme-day .border-zinc-800\/50 {
+  border-color: rgba(228, 228, 231, 0.5) !important;
+}
+
+.theme-day .border-zinc-700 {
+  border-color: #e4e4e7 !important;
+}
+
+.theme-day .text-zinc-100 {
+  color: #09090b !important;
+}
+
+.theme-day .text-zinc-200 {
+  color: #18181b !important;
+}
+
+.theme-day .text-zinc-300 {
+  color: #27272a !important;
+}
+
+.theme-day .text-zinc-400 {
+  color: #4b5563 !important;
+}
+
+.theme-day .text-zinc-500 {
+  color: #6b7280 !important;
+}
+
+.theme-day .text-zinc-600 {
+  color: #9ca3af !important;
+}
+
+.theme-day .text-zinc-700 {
+  color: #d1d5db !important;
+}
+
+/* Modal backgrounds */
+.theme-day.fixed.inset-0.bg-black\/80,
+.theme-day .bg-black\/80 {
+  background-color: rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Inputs, Selects and other components */
+.theme-day input,
+.theme-day select {
+  background-color: #ffffff !important;
+  color: #09090b !important;
+  border-color: #e4e4e7 !important;
+}
+
+.theme-day input::placeholder {
+  color: #9ca3af !important;
+}
+
+/* Active buttons styling in Day Mode */
+.theme-day .bg-emerald-500\/10 {
+  background-color: rgba(16, 185, 129, 0.08) !important;
+}
+
+.theme-day .border-emerald-500\/30 {
+  border-color: rgba(16, 185, 129, 0.25) !important;
+}
+
+.theme-day .text-emerald-400 {
+  color: #059669 !important; /* Slightly darker emerald for better contrast in day mode */
+}
+
+/* Font Size Large (Elderly Friendly Mode) Overrides */
+.font-size-large {
+  font-size: 1.15rem !important; /* Increase baseline */
+}
+
+/* Scale up specific Tailwind font-size classes inside .font-size-large */
+.font-size-large .text-\[10px\] {
+  font-size: 13px !important;
+}
+
+.font-size-large .text-\[11px\] {
+  font-size: 14px !important;
+}
+
+.font-size-large .text-xs {
+  font-size: 15px !important;
+  line-height: 1.4 !important;
+}
+
+.font-size-large .text-sm {
+  font-size: 18px !important;
+  line-height: 1.45 !important;
+}
+
+.font-size-large .text-base {
+  font-size: 20px !important;
+  line-height: 1.5 !important;
+}
+
+.font-size-large .text-lg {
+  font-size: 22px !important;
+  line-height: 1.5 !important;
+}
+
+.font-size-large .text-xl {
+  font-size: 25px !important;
+}
+
+.font-size-large .text-2xl {
+  font-size: 28px !important;
+}
+
+.font-size-large .text-3xl {
+  font-size: 34px !important;
+}
+
+.font-size-large .text-4xl {
+  font-size: 42px !important;
+}
+
+.font-size-large .text-5xl {
+  font-size: 50px !important;
+}
+
+.font-size-large .text-6xl {
+  font-size: 58px !important;
+}
+
+.font-size-large .text-7xl {
+  font-size: 66px !important;
+}
+
+.font-size-large .text-8xl {
+  font-size: 82px !important;
+}
+
+/* Increase icon sizing slightly in large mode to match the larger typography */
+.font-size-large svg:not(.lucide-chevron-right):not(.lucide-chevron-left) {
+  transform: scale(1.15);
+}
+
+/* Ensure tap targets have slightly more padding/height for precise control */
+.font-size-large button, 
+.font-size-large a {
+  min-height: 48px;
+}
+
+.font-size-large input,
+.font-size-large select {
+  min-height: 48px;
+}
+

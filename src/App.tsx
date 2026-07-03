@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Shield, AlertTriangle, CheckCircle2, Phone, Settings, Activity, Clock, Battery, Sun, Smartphone, User, ShieldAlert, Plus, X, Timer, Vibrate, Volume2, VolumeX } from 'lucide-react';
+import { Shield, AlertTriangle, CheckCircle2, Phone, Settings, Activity, Clock, Battery, Sun, Smartphone, User, ShieldAlert, Plus, X, Timer, Vibrate, Volume2, VolumeX, Type } from 'lucide-react';
 import { Motion } from '@capacitor/motion';
 import { Capacitor } from '@capacitor/core';
 import { Device } from '@capacitor/device';
@@ -81,6 +81,13 @@ export default function App() {
     type: 'movement' as const
   });
   const [sensorPermission, setSensorPermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
+  const [testCountdown, setTestCountdown] = useState<number | null>(null);
+  const [theme, setTheme] = useState<'day' | 'night'>(() => {
+    return (localStorage.getItem('guardian_pulse_theme') as 'day' | 'night') || 'night';
+  });
+  const [fontSize, setFontSize] = useState<'normal' | 'large'>(() => {
+    return (localStorage.getItem('guardian_pulse_font_size') as 'normal' | 'large') || 'large';
+  });
 
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
     return localStorage.getItem('guardian_pulse_sound_enabled') !== 'false';
@@ -88,6 +95,83 @@ export default function App() {
   const [vibrateEnabled, setVibrateEnabled] = useState<boolean>(() => {
     return localStorage.getItem('guardian_pulse_vibrate_enabled') !== 'false';
   });
+
+  const [wakeLockSentinel, setWakeLockSentinel] = useState<any>(null);
+  const [notificationPermission, setNotificationPermission] = useState<string>(() => {
+    return 'Notification' in window ? Notification.permission : 'unsupported';
+  });
+
+  const requestWakeLock = useCallback(async () => {
+    if (!('wakeLock' in navigator)) {
+      console.warn('Screen Wake Lock is not supported on this device/browser');
+      return;
+    }
+    try {
+      // Release any existing wake lock before requesting a new one
+      if (wakeLockSentinel) {
+        try {
+          await wakeLockSentinel.release();
+        } catch (e) {}
+      }
+      const sentinel = await (navigator as any).wakeLock.request('screen');
+      setWakeLockSentinel(sentinel);
+      console.log('Screen Wake Lock acquired successfully');
+    } catch (err) {
+      console.error('Failed to acquire Screen Wake Lock:', err);
+    }
+  }, [wakeLockSentinel]);
+
+  const releaseWakeLock = useCallback(async () => {
+    if (wakeLockSentinel) {
+      try {
+        await wakeLockSentinel.release();
+        setWakeLockSentinel(null);
+      } catch (err) {
+        console.error('Failed to release Screen Wake Lock:', err);
+      }
+    }
+  }, [wakeLockSentinel]);
+
+  const requestNotificationPermission = async () => {
+    if ('Notification' in window) {
+      try {
+        const permission = await Notification.requestPermission();
+        setNotificationPermission(permission);
+        return permission;
+      } catch (e) {
+        console.error('Error requesting notification permission:', e);
+      }
+    }
+    return 'unsupported';
+  };
+
+  // Screen Wake Lock loop to keep display active
+  useEffect(() => {
+    requestWakeLock();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        requestWakeLock();
+      } else {
+        releaseWakeLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      releaseWakeLock();
+    };
+  }, [appState, requestWakeLock, releaseWakeLock]);
+
+  // Request notifications permission on app initialization
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().then(permission => {
+        setNotificationPermission(permission);
+      });
+    }
+  }, []);
 
   const toggleSound = () => {
     const newVal = !soundEnabled;
@@ -325,6 +409,91 @@ export default function App() {
     setSensorData(prev => ({ ...prev, lastInteraction: Date.now() }));
   };
 
+  // Timer effect for lock-screen diagnostic testing
+  useEffect(() => {
+    if (testCountdown === null) return;
+    if (testCountdown === 0) {
+      setTestCountdown(null);
+      setAppState('alert_phase_1');
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setTestCountdown(prev => (prev !== null ? prev - 1 : null));
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [testCountdown]);
+
+  // Listen for dismiss action from service worker tap
+  useEffect(() => {
+    const handleSWMessage = (event: MessageEvent) => {
+      if (event.data && event.data.action === 'dismiss-alarm') {
+        handleIamOk();
+      }
+    };
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleSWMessage);
+    }
+    return () => {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleSWMessage);
+      }
+    };
+  }, []);
+
+  // Post browser/device notification on Alert to wake sleeping display and sound/vibrate
+  useEffect(() => {
+    if (appState !== 'monitoring') {
+      let title = '⚠️ Guardian Pulse Warning!';
+      let body = 'Action required: Inactivity alert active. Click to confirm you are safe.';
+      
+      if (appState === 'alert_phase_1') {
+        title = '⚠️ Inactivity Warning';
+        body = 'No movement detected. Tap to confirm you are OK!';
+      } else if (appState === 'alert_phase_2') {
+        title = '🚨 Urgent: Inactivity Warning';
+        body = 'Next-of-kin alert is about to be sent. Click immediately!';
+      } else if (appState === 'alert_phase_3') {
+        title = '🚨 EMERGENCY STATE ACTIVE';
+        body = 'Contacting next-of-kin...';
+      }
+
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+          // Send notification via Service Worker if active (crucial for locked screens/background execution)
+          if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({
+              type: 'SHOW_ALERT_NOTIFICATION',
+              title,
+              body,
+              options: {
+                data: { appState }
+              }
+            });
+          } else {
+            // Fallback to standard local notification
+            const notification = new Notification(title, {
+              body,
+              icon: '/favicon.ico',
+              tag: 'guardian-pulse-emergency',
+              requireInteraction: true,
+              silent: false,
+              vibrate: [500, 200, 500, 200, 500, 200, 500],
+            } as any);
+            
+            notification.onclick = () => {
+              window.focus();
+              handleIamOk();
+            };
+          }
+        } catch (e) {
+          console.error('Notification failed to show:', e);
+        }
+      }
+    }
+  }, [appState]);
+
   // Simulate Anomaly
   const triggerAnomaly = () => {
     setAppState('alert_phase_1');
@@ -335,7 +504,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col max-w-md mx-auto bg-zinc-950 border-x border-zinc-800 shadow-2xl relative overflow-hidden">
+    <div className={`theme-${theme} font-size-${fontSize} min-h-screen flex flex-col max-w-md mx-auto bg-zinc-950 border-x border-zinc-800 shadow-2xl relative overflow-hidden`}>
       {/* Header */}
       <header className="p-6 flex items-center justify-between border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-md sticky top-0 z-10">
         <div className="flex items-center gap-3">
@@ -634,6 +803,112 @@ export default function App() {
                  onInactivityRestore={updateInactivityThreshold}
                />
 
+                {/* Notification permission status to wake screen */}
+                <div className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-800 text-left">
+                  <div className="flex flex-col text-left">
+                    <span className="text-xs font-semibold text-zinc-200">Wake Screen Notifications</span>
+                    <span className="text-[10px] text-zinc-500">
+                      {notificationPermission === 'granted' 
+                        ? '✅ Enabled (Wakes sleeping screen)' 
+                        : '⚠️ Required to wake sleeping screen'}
+                    </span>
+                  </div>
+                  {notificationPermission !== 'granted' && (
+                    <button
+                      onClick={requestNotificationPermission}
+                      className="py-1.5 px-3 bg-emerald-500 hover:bg-emerald-400 text-black text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all active:scale-95"
+                    >
+                      Enable
+                    </button>
+                  )}
+                </div>
+
+                {/* Interface Theme Settings (Day / Night) */}
+                <div className="flex flex-col gap-4 p-4 rounded-xl bg-zinc-800">
+                  <div className="flex items-center gap-3">
+                    <Sun className="w-5 h-5 text-zinc-400" />
+                    <div>
+                      <p className="text-sm font-medium">Interface Mode</p>
+                      <p className="text-xs text-zinc-500">Choose between light (day) or dark (night) display</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <button
+                      onClick={() => {
+                        setTheme('day');
+                        localStorage.setItem('guardian_pulse_theme', 'day');
+                      }}
+                      className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${
+                        theme === 'day'
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold'
+                          : 'bg-zinc-900 border-zinc-700 text-zinc-500'
+                      }`}
+                    >
+                      <Sun className="w-5 h-5" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Day Mode</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setTheme('night');
+                        localStorage.setItem('guardian_pulse_theme', 'night');
+                      }}
+                      className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${
+                        theme === 'night'
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold'
+                          : 'bg-zinc-900 border-zinc-700 text-zinc-500'
+                      }`}
+                    >
+                      <Smartphone className="w-5 h-5" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Night Mode</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Text Size Settings for Elderly Mode */}
+                <div className="flex flex-col gap-4 p-4 rounded-xl bg-zinc-800">
+                  <div className="flex items-center gap-3">
+                    <Type className="w-5 h-5 text-zinc-400" />
+                    <div>
+                      <p className="text-sm font-medium">Text Size (Elderly-Friendly)</p>
+                      <p className="text-xs text-zinc-500">Enlarge app text and tap buttons for better readability</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <button
+                      onClick={() => {
+                        setFontSize('normal');
+                        localStorage.setItem('guardian_pulse_font_size', 'normal');
+                      }}
+                      className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${
+                        fontSize === 'normal'
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold'
+                          : 'bg-zinc-900 border-zinc-700 text-zinc-500'
+                      }`}
+                    >
+                      <span className="text-sm font-medium">Aa</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Normal Size</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setFontSize('large');
+                        localStorage.setItem('guardian_pulse_font_size', 'large');
+                      }}
+                      className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${
+                        fontSize === 'large'
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold'
+                          : 'bg-zinc-900 border-zinc-700 text-zinc-500'
+                      }`}
+                    >
+                      <span className="text-xl font-bold">Aa</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Large (Elderly)</span>
+                    </button>
+                  </div>
+                </div>
+
                {/* Alarm Feedback Settings */}
                <div className="flex flex-col gap-4 p-4 rounded-xl bg-zinc-800">
                  <div className="flex items-center gap-3">
@@ -679,6 +954,19 @@ export default function App() {
                  >
                    <ShieldAlert className="w-4 h-4 text-emerald-400" />
                    Test Alarm Hardware
+                 </button>
+
+                 {/* Test Locked Phone Alarm (5s Delay) */}
+                 <button
+                   onClick={() => {
+                     setShowSettings(false);
+                     setTestCountdown(5);
+                   }}
+                   disabled={testCountdown !== null}
+                   className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-2"
+                 >
+                   <Clock className="w-4 h-4" />
+                   Test Locked Phone Alarm (5s Delay)
                  </button>
                </div>
 
@@ -735,6 +1023,28 @@ export default function App() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Lock Screen Test Countdown Overlay */}
+      {testCountdown !== null && (
+        <div className="fixed inset-0 bg-zinc-950/95 z-50 flex flex-col items-center justify-center p-8 text-center animate-fade-in backdrop-blur-md">
+          <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 mb-6 animate-pulse">
+            <Clock className="w-8 h-8 text-emerald-400" />
+          </div>
+          <h2 className="text-2xl font-black text-white tracking-tight mb-2">LOCK YOUR PHONE NOW</h2>
+          <p className="text-zinc-400 text-xs max-w-xs mb-8 leading-relaxed">
+            Quickly lock your phone screen. The high-priority wake notification and emergency audio sirens will trigger in:
+          </p>
+          <div className="text-8xl font-black font-mono text-emerald-400 animate-bounce">
+            {testCountdown}
+          </div>
+          <button
+            onClick={() => setTestCountdown(null)}
+            className="mt-12 px-6 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-full text-xs font-bold uppercase tracking-widest transition-colors"
+          >
+            Cancel Test
+          </button>
         </div>
       )}
     </div>
